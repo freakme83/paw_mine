@@ -1,6 +1,6 @@
-# Paw Mine
+# Meow Mine
 
-A browser-based 2D top-down management prototype with a cute rural shelter-adjacent theme. This first slice focuses on movement, copper mining, selling, and day progression.
+This repo now treats `meow_mine.html` as the playable prototype entry point. It is a standalone browser prototype for the first gameplay slice: movement, copper mining, selling, energy, hunger, coins, and day progression.
 
 ## Controls
 
@@ -9,10 +9,6 @@ A browser-based 2D top-down management prototype with a cute rural shelter-adjac
 - Sell copper: `F` near the market stall
 - Sleep: click the HUD button
 
-## Scripts
+## Run
 
-```bash
-npm install
-npm run dev
-npm run build
-```
+Open `meow_mine.html` directly in a browser, or serve the folder with any static server.
