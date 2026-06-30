@@ -1,6 +1,6 @@
 # Meow Mine
 
-This repo now treats `meow_mine.html` as the playable prototype entry point. It is a standalone browser prototype for the first gameplay slice: movement, copper mining, selling, energy, hunger, coins, and day progression.
+`index.html` is now the canonical playable prototype file. The previous `meow_mine.html` flow has been folded into `index.html` so local development and production deploys both start from the site root.
 
 ## Controls
 
@@ -11,4 +11,18 @@ This repo now treats `meow_mine.html` as the playable prototype entry point. It 
 
 ## Run
 
-Open `meow_mine.html` directly in a browser, or serve the folder with any static server.
+Open `index.html` directly in a browser, or use Vite:
+
+```bash
+npm install
+npm run dev
+```
+
+## Deploy
+
+Netlify should use:
+
+- Build command: `npm run build`
+- Publish directory: `dist`
+
+The included Netlify redirect sends fallback routes to `index.html`.
