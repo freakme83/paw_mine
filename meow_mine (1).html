@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meow & Mine: Şirin Kırsal Sığınak Simülatörü</title>
+    <!-- Modern ve şık paneller için Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Phaser 3 Oyun Motoru -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&display=swap');
+        
+        body {
+            font-family: 'Fredoka', 'Trebuchet MS', sans-serif;
+            background-color: #fefcf6; /* Yumuşak nostaljik süt beyazı tonu */
+            user-select: none;
+        }
+
+        /* Phaser Canvas Container Responsive Stili */
+        #game-container canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 16px;
+            border: 4px solid #ebd9c8; /* Ahşap görünümlü çerçeve */
+            box-shadow: 0 15px 30px -10px rgba(103, 80, 56, 0.15), 0 10px 15px -5px rgba(103, 80, 56, 0.1);
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Özelleştirilmiş pürüzsüz kaydırma çubuğu */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #faf6f0;
+            border-radius: 9px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e2d5c3;
+            border-radius: 9px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #c3b4a2;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 flex flex-col">
+
+    <!-- Üst Bilgi Paneli (Header) -->
+    <header class="bg-amber-100/60 border-b border-amber-200/50 py-3 px-4 shadow-sm">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <!-- Şirin SVG Kedi Logosu -->
+                <div class="p-1 bg-white rounded-xl border-2 border-orange-400 shadow-sm">
+                    <svg class="w-10 h-10" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 24 L22 34 L12 40 Z" fill="#F39C12"/>
+                        <path d="M52 24 L42 34 L52 40 Z" fill="#F39C12"/>
+                        <circle cx="32" cy="36" r="16" fill="#F39C12"/>
+                        <path d="M14 26 L20 32 L15 36 Z" fill="#FFB8B8"/>
+                        <path d="M50 26 L44 32 L49 36 Z" fill="#FFB8B8"/>
+                        <circle cx="26" cy="34" r="2.5" fill="#2C3E50"/>
+                        <circle cx="38" cy="34" r="2.5" fill="#2C3E50"/>
+                        <circle cx="22" cy="38" r="2.2" fill="#FF7675" opacity="0.8"/>
+                        <circle cx="42" cy="38" r="2.2" fill="#FF7675" opacity="0.8"/>
+                        <polygon points="32,38 30,36 34,36" fill="#2C3E50"/>
+                        <path d="M30 40 Q32 42 34 40" stroke="#2C3E50" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-black text-amber-900 tracking-wide flex items-center gap-1">
+                        Meow & Mine <span class="text-sm font-medium px-2 py-0.5 rounded-full bg-orange-400 text-white shadow-sm">v1.1 - Zaman Güncellemesi</span>
+                    </h1>
+                    <p class="text-xs text-amber-800/70">Kırsal barınak bakıcısı simülatör prototipi &bull; Topla, geliş, hayatta kal</p>
+                </div>
+            </div>
+            
+            <!-- Hızlı Gösterge Paneli -->
+            <div class="flex gap-4 items-center bg-white/70 backdrop-blur px-4 py-2 rounded-2xl border border-amber-200/40 shadow-inner">
+                <div class="text-center">
+                    <p class="text-[10px] uppercase tracking-wider text-amber-800 font-bold">Takvim</p>
+                    <span id="hud-day" class="text-sm font-extrabold text-orange-600">Gün 1</span>
+                </div>
+                <div class="h-6 w-px bg-amber-200"></div>
+                <div class="text-center flex items-center gap-1.5">
+                    <div class="text-lg">🪙</div>
+                    <div class="text-left">
+                        <p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold leading-none">Altın</p>
+                        <span id="hud-coins" class="text-sm font-extrabold text-slate-700 leading-none">50</span>
+                    </div>
+                </div>
+                <div class="h-6 w-px bg-amber-200"></div>
+                <div class="text-center flex items-center gap-1.5">
+                    <div class="text-lg">🧱</div>
+                    <div class="text-left">
+                        <p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold leading-none">Bakır</p>
+                        <span id="hud-copper" class="text-sm font-extrabold text-slate-700 leading-none">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Ana Dinamik Arayüz Düzeni -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-4 gap-4">
+        
+        <!-- Sol Sütun: Rehber, Kontroller ve Günlük Akışı -->
+        <section class="lg:col-span-1 flex flex-col gap-4">
+            
+            <!-- Sığınak Alan Rehberi -->
+            <div class="bg-white p-4 rounded-3xl border border-amber-100 shadow-sm">
+                <h3 class="text-md font-extrabold text-amber-900 border-b border-amber-50 pb-2 mb-2 flex items-center gap-1.5">
+                    📖 Sığınak Alan Rehberi
+                </h3>
+                <div class="space-y-2 text-xs text-slate-600">
+                    <p class="leading-relaxed">Sığınağımıza hoş geldin bakıcı! Çevredeki önemli yapıları tanıyalım:</p>
+                    <div class="grid grid-cols-1 gap-1.5 mt-2">
+                        <div class="flex items-center gap-2 p-1.5 bg-amber-50/50 rounded-xl">
+                            <span class="text-lg">🏡</span>
+                            <div>
+                                <p class="font-bold text-amber-950">Bakıcı Kulübesi</p>
+                                <p class="text-[10px]">Burada dinlenebilir, günleri ilerletip enerjini doldurabilirsin.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 p-1.5 bg-orange-50/40 rounded-xl">
+                            <span class="text-lg">⛏️</span>
+                            <div>
+                                <p class="font-bold text-orange-950">Bakır Damarı</p>
+                                <p class="text-[10px]">Maden kazmak 5 saniye sürer ve enerji tüketir. (SPACE)</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 p-1.5 bg-emerald-50/40 rounded-xl">
+                            <span class="text-lg">🏪</span>
+                            <div>
+                                <p class="font-bold text-emerald-950">Pazar Tezgahı</p>
+                                <p class="text-[10px]">Bakırları satıp kediler için yiyecek alabilirsin. (E)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kontroller ve Girdiler -->
+            <div class="bg-white p-4 rounded-3xl border border-amber-100 shadow-sm">
+                <h3 class="text-md font-extrabold text-slate-800 border-b border-slate-50 pb-2 mb-2">
+                    🎮 Bakıcı Kontrolleri
+                </h3>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-slate-50 p-2 rounded-2xl flex flex-col items-center text-center">
+                        <span class="font-bold text-slate-700">Hareket Et</span>
+                        <span class="text-[10px] text-slate-400">Yön / WASD Tuşları</span>
+                        <div class="flex gap-1 mt-1 text-slate-500 font-bold">
+                            <kbd class="px-1.5 py-0.5 bg-white border border-slate-200 rounded">W</kbd>
+                            <kbd class="px-1.5 py-0.5 bg-white border border-slate-200 rounded">A</kbd>
+                            <kbd class="px-1.5 py-0.5 bg-white border border-slate-200 rounded">S</kbd>
+                            <kbd class="px-1.5 py-0.5 bg-white border border-slate-200 rounded">D</kbd>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 p-2 rounded-2xl flex flex-col items-center text-center justify-between">
+                        <span class="font-bold text-slate-700">Eylemler</span>
+                        <span class="text-[10px] text-slate-400">Etkileşim Tuşları</span>
+                        <div class="flex gap-1.5 mt-1">
+                            <span class="px-1.5 py-0.5 bg-white border border-slate-200 rounded font-bold text-slate-500">[SPACE]</span>
+                            <span class="px-1.5 py-0.5 bg-white border border-slate-200 rounded font-bold text-slate-500">[E]</span>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-[10px] text-center text-slate-400 mt-2">✨ Yürümek az miktarda stamina harcar. Haritaya tıklayarak otomatik yürüyebilirsin.</p>
+            </div>
+
+            <!-- Kamp Haber Bülteni -->
+            <div class="bg-white p-4 rounded-3xl border border-amber-100 shadow-sm flex-grow flex flex-col min-h-[180px]">
+                <h3 class="text-md font-extrabold text-amber-900 border-b border-amber-50 pb-2 mb-2 flex justify-between items-center">
+                    <span>📰 Sığınak Bülteni</span>
+                    <span class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Canlı Akış</span>
+                </h3>
+                <div id="log-feed" class="flex-grow overflow-y-auto space-y-2 max-h-[220px] lg:max-h-[300px] custom-scrollbar text-xs">
+                    <!-- Dinamik loglar buraya eklenecektir -->
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Orta Sütun: Ana Oyun Ekranı (Canvas) -->
+        <section class="lg:col-span-2 flex flex-col gap-4 items-center justify-center">
+            
+            <div class="relative w-full flex flex-col">
+                
+                <!-- Etkileşim İpuçları -->
+                <div class="absolute top-3 left-3 z-10 flex gap-2 pointer-events-none text-xs font-bold text-white drop-shadow-md">
+                    <div id="action-prompt-mine" class="px-2.5 py-1.5 rounded-full bg-orange-600/90 backdrop-blur flex items-center gap-1 shadow-md opacity-40 transition-all duration-300 transform scale-95">
+                        <span>⛏️</span> <span>Maden için SPACE</span>
+                    </div>
+                    <div id="action-prompt-trade" class="px-2.5 py-1.5 rounded-full bg-emerald-600/90 backdrop-blur flex items-center gap-1 shadow-md opacity-40 transition-all duration-300 transform scale-95">
+                        <span>🏪</span> <span>Pazar için E</span>
+                    </div>
+                    <div id="action-prompt-rest" class="px-2.5 py-1.5 rounded-full bg-indigo-600/90 backdrop-blur flex items-center gap-1 shadow-md opacity-40 transition-all duration-300 transform scale-95">
+                        <span>🏡</span> <span>Uyumak için E</span>
+                    </div>
+                </div>
+
+                <!-- Phaser Oyununun Çizileceği Yer -->
+                <div id="game-container" class="w-full relative rounded-2xl overflow-hidden shadow-xl bg-emerald-900/10"></div>
+                
+                <!-- Mobil Cihazlar için Sanal Kontrol Paneli -->
+                <div class="flex flex-col items-center gap-1 mt-3 md:hidden">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sanal Kumanda</span>
+                    <div class="flex flex-col items-center gap-1">
+                        <!-- Yukarı -->
+                        <button id="btn-move-up" class="w-12 h-12 flex items-center justify-center bg-white active:bg-amber-100 text-amber-900 rounded-2xl shadow-md border border-amber-100 font-extrabold text-lg select-none transform active:scale-95 transition-all">▲</button>
+                        <!-- Sol / Aşağı / Sağ -->
+                        <div class="flex gap-2">
+                            <button id="btn-move-left" class="w-12 h-12 flex items-center justify-center bg-white active:bg-amber-100 text-amber-900 rounded-2xl shadow-md border border-amber-100 font-extrabold text-lg select-none transform active:scale-95 transition-all">◀</button>
+                            <button id="btn-move-down" class="w-12 h-12 flex items-center justify-center bg-white active:bg-amber-100 text-amber-900 rounded-2xl shadow-md border border-amber-100 font-extrabold text-lg select-none transform active:scale-95 transition-all">▼</button>
+                            <button id="btn-move-right" class="w-12 h-12 flex items-center justify-center bg-white active:bg-amber-100 text-amber-900 rounded-2xl shadow-md border border-amber-100 font-extrabold text-lg select-none transform active:scale-95 transition-all">▶</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- Sağ Sütun: Hayati Durumlar ve Belediye Başkanı Barnaby'nin Pazarı -->
+        <section class="lg:col-span-1 flex flex-col gap-4">
+            
+            <!-- Hayatta Kalma Göstergeleri -->
+            <div class="bg-white p-4 rounded-3xl border border-amber-100 shadow-sm space-y-4">
+                <h3 class="text-md font-extrabold text-slate-800 border-b border-slate-50 pb-2 mb-1">
+                    🔋 Hayati Analizler
+                </h3>
+                
+                <!-- Satiety (Tokluk) -->
+                <div>
+                    <div class="flex justify-between items-center text-xs font-bold text-slate-600 mb-1">
+                        <span class="flex items-center gap-1">🐟 Tokluk Durumu</span>
+                        <span id="text-satiety">100/100</span>
+                    </div>
+                    <div class="w-full bg-slate-100 h-5 p-0.5 rounded-full overflow-hidden shadow-inner border border-slate-200">
+                        <div id="bar-satiety" class="h-3.5 rounded-full bg-amber-500 transition-all duration-300" style="width: 100%"></div>
+                    </div>
+                    <p class="text-[9px] text-slate-400 mt-1">Uyumak açlığı 30 birim artırır. Tokluğu sıfıra düşürmemeye çalışın!</p>
+                </div>
+
+                <!-- Energy (Stamina) -->
+                <div>
+                    <div class="flex justify-between items-center text-xs font-bold text-slate-600 mb-1">
+                        <span class="flex items-center gap-1">⚡ Enerji (Stamina)</span>
+                        <span id="text-energy">100/100</span>
+                    </div>
+                    <div class="w-full bg-slate-100 h-5 p-0.5 rounded-full overflow-hidden shadow-inner border border-slate-200">
+                        <div id="bar-energy" class="h-3.5 rounded-full bg-emerald-500 transition-all duration-300" style="width: 100%"></div>
+                    </div>
+                    <p class="text-[9px] text-slate-400 mt-1">Madencilik 15 enerji götürür. Yürümek yavaşça staminayı tüketir.</p>
+                </div>
+            </div>
+
+            <!-- Pazar Tezgahı -->
+            <div class="bg-white p-4 rounded-3xl border border-amber-100 shadow-sm space-y-3 relative overflow-hidden">
+                
+                <!-- Dekoratif Arka Plan Çemberi -->
+                <div class="absolute -right-12 -top-12 w-28 h-28 bg-emerald-50 rounded-full -z-0"></div>
+                
+                <div class="relative z-10 flex items-center gap-2 border-b border-amber-50 pb-2">
+                    <div id="barnaby-avatar"></div>
+                    <div>
+                        <h3 class="text-xs font-black text-emerald-950 uppercase tracking-widest leading-none">Pazar Tezgahı</h3>
+                        <h4 class="text-sm font-extrabold text-emerald-800 leading-tight">Başkan Barnaby</h4>
+                    </div>
+                </div>
+
+                <!-- Yakınlık Uyarısı Kutusu -->
+                <div id="market-placeholder" class="text-center py-4 px-2 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-400">
+                    <span class="text-xl">🚶‍♂️</span>
+                    <p class="font-bold text-slate-500 mt-1">Tezgah Kapalı</p>
+                    <p class="text-[10px] mt-0.5">Ticaret yapmak için haritadaki Pazar alanının yakınına yürüyün.</p>
+                </div>
+
+                <!-- Aktif Ticaret Arayüzü -->
+                <div id="market-banner" class="hidden space-y-3 pt-1">
+                    
+                    <!-- Fiyat Ticker -->
+                    <div class="bg-emerald-50/60 border border-emerald-100 p-2.5 rounded-2xl text-xs space-y-1">
+                        <div class="flex justify-between items-center">
+                            <span class="text-emerald-900 font-bold">Günlük Bakır Fiyatı:</span>
+                            <span id="market-price" class="font-black text-sm text-emerald-800">10 Altın</span>
+                        </div>
+                        <div class="flex justify-between items-center text-[10px]">
+                            <span class="text-slate-400">Piyasa Trendi:</span>
+                            <span id="price-trend" class="font-extrabold text-slate-500">kararlı</span>
+                        </div>
+                    </div>
+
+                    <!-- Bakır Satışı -->
+                    <div class="space-y-1.5">
+                        <p class="text-[10px] font-black uppercase text-slate-400 tracking-wide">Madenleri Sat</p>
+                        <div class="flex gap-2">
+                            <button id="btn-sell-one" class="flex-1 py-2 px-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs flex items-center justify-center gap-1 shadow transition-all transform active:scale-95">
+                                🧱 1 Adet Sat
+                            </button>
+                            <button id="btn-sell-all" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow transition-all transform active:scale-95">
+                                🎒 Hepsini Sat
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Yiyecek Alımı -->
+                    <div class="space-y-1.5 pt-1">
+                        <p class="text-[10px] font-black uppercase text-slate-400 tracking-wide">Mama Stoğu Al</p>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="bg-amber-50/40 p-2 rounded-2xl border border-amber-100 text-center flex flex-col justify-between items-center">
+                                <span class="text-xl">🐟</span>
+                                <span class="font-bold text-[11px] text-amber-950 mt-1">Ton Balığı</span>
+                                <span class="text-[9px] text-slate-400 mb-2">+40 Tokluk</span>
+                                <button id="btn-buy-tuna" class="w-full py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 font-extrabold transition-all text-[10px]">
+                                    15 Altın
+                                </button>
+                            </div>
+                            <div class="bg-amber-50/40 p-2 rounded-2xl border border-amber-100 text-center flex flex-col justify-between items-center">
+                                <span class="text-xl">🍗</span>
+                                <span class="font-bold text-[11px] text-amber-950 mt-1">Kuru Mama</span>
+                                <span class="text-[9px] text-slate-400 mb-2">+90 Tokluk</span>
+                                <button id="btn-buy-kibble" class="w-full py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 font-extrabold transition-all text-[10px]">
+                                    30 Altın
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Bakıcı Kulübesi Uyku İstasyonu -->
+            <div class="bg-white p-4 rounded-3xl border border-amber-100 shadow-sm space-y-2">
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Bakıcı Kulübesi</h3>
+                <button id="btn-sleep" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-2xl shadow-lg hover:shadow-indigo-500/20 flex items-center justify-center gap-2 transform hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer">
+                    <span>🛌</span>
+                    <span>Uyu ve Günü İlerlet</span>
+                </button>
+                <p class="text-[9px] text-slate-400 text-center mt-1">Uyumak staminayı tamamen doldurur fakat tokluğu 30 birim azaltır.</p>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Gece Geçiş Ekranı Karartması -->
+    <div id="night-overlay" class="fixed inset-0 bg-black opacity-0 pointer-events-none transition-all duration-1000 z-50 flex flex-col items-center justify-center">
+        <div class="text-center text-white space-y-4 max-w-sm px-6">
+            <div class="text-6xl animate-bounce">💤</div>
+            <h2 id="night-title" class="text-3xl font-extrabold tracking-wider text-indigo-300">Huzurlu Gece Uykusu...</h2>
+            <p id="night-subtitle" class="text-slate-400 text-sm leading-relaxed">Cırcır böcekleri sığınağın ahşap duvarlarının dışında tatlı bir ninni çalıyor.</p>
+        </div>
+    </div>
+
+    <!-- Alt Bilgi (Footer) -->
+    <footer class="bg-amber-100/30 py-3 text-center text-xs text-slate-400 border-t border-amber-200/20 mt-auto">
+        🐾 Build 1.1.0 &bull; Kırsal Kedi Sığınağı Geliştirme Oyunu &bull; Phaser 3 ile Tasarlanmıştır
+    </footer>
+
+    <!-- Oyun Mantığı Kodları -->
+    <script>
+        // ==========================================
+        // 1. Web Audio API Ses Motoru
+        // ==========================================
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+            }
+            
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            // Maden kazma sırasındaki metal tınlama sesi
+            playMine() {
+                this.init();
+                const now = this.ctx.currentTime;
+                
+                const osc1 = this.ctx.createOscillator();
+                const gain1 = this.ctx.createGain();
+                osc1.type = 'triangle';
+                osc1.frequency.setValueAtTime(850, now);
+                osc1.frequency.exponentialRampToValueAtTime(100, now + 0.14);
+                gain1.gain.setValueAtTime(0.12, now);
+                gain1.gain.linearRampToValueAtTime(0.001, now + 0.14);
+                osc1.connect(gain1);
+                gain1.connect(this.ctx.destination);
+                osc1.start(now);
+                osc1.stop(now + 0.14);
+
+                const osc2 = this.ctx.createOscillator();
+                const gain2 = this.ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(1800, now);
+                osc2.frequency.exponentialRampToValueAtTime(1400, now + 0.08);
+                gain2.gain.setValueAtTime(0.08, now);
+                gain2.gain.linearRampToValueAtTime(0.001, now + 0.08);
+                osc2.connect(gain2);
+                gain2.connect(this.ctx.destination);
+                osc2.start(now);
+                osc2.stop(now + 0.08);
+            }
+
+            // Altın satışı veya alışverişteki tatlı iki tonlu tını
+            playCoin() {
+                this.init();
+                const now = this.ctx.currentTime;
+                
+                const playTone = (frequency, delay, duration) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(frequency, now + delay);
+                    gain.gain.setValueAtTime(0.07, now + delay);
+                    gain.gain.linearRampToValueAtTime(0.001, now + delay + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + delay);
+                    osc.stop(now + delay + duration);
+                };
+                
+                playTone(987.77, 0, 0.1);    // B5 Notası
+                playTone(1318.51, 0.07, 0.25); // E6 Notası
+            }
+
+            // Uykudaki yükselen melodi
+            playSleep() {
+                this.init();
+                const now = this.ctx.currentTime;
+                
+                const playNote = (frequency, startOffset, duration) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(frequency, now + startOffset);
+                    gain.gain.setValueAtTime(0.06, now + startOffset);
+                    gain.gain.linearRampToValueAtTime(0.001, now + startOffset + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + startOffset);
+                    osc.stop(now + startOffset + duration);
+                };
+
+                playNote(261.63, 0, 0.2);     // C4
+                playNote(329.63, 0.15, 0.2);  // E4
+                playNote(392.00, 0.3, 0.2);   // G4
+                playNote(523.25, 0.45, 0.45); // C5
+            }
+
+            // Mama yerken çıkan çıtırtı sesleri
+            playEat() {
+                this.init();
+                const now = this.ctx.currentTime;
+                
+                const crunch = (offset) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(280, now + offset);
+                    osc.frequency.exponentialRampToValueAtTime(60, now + offset + 0.08);
+                    gain.gain.setValueAtTime(0.15, now + offset);
+                    gain.gain.linearRampToValueAtTime(0.001, now + offset + 0.08);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + offset);
+                    osc.stop(now + offset + 0.08);
+                };
+
+                crunch(0);
+                crunch(0.12);
+                crunch(0.24);
+            }
+
+            // Hata / Uyarı sesi
+            playAlert() {
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.linearRampToValueAtTime(220, now + 0.15);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.linearRampToValueAtTime(0.001, now + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+        }
+
+        const sounds = new SoundFX();
+
+        // ==========================================
+        // 2. Global Oyun Durumu (State)
+        // ==========================================
+        const gameState = {
+            day: 1,
+            coins: 50,         // Başlangıç altını
+            copper: 0,         // Taşınan bakır cevheri
+            energy: 100,       // Max enerji: 100
+            satiety: 100,      // Max tokluk: 100
+            copperPrice: 10,   // Başlangıç bakır fiyatı
+            priceTrend: 'kararlı', 
+            priceChange: 0,
+            logs: ['🏡 Sığınağa hoş geldin! Bakır toplayarak marketten mama stokla.']
+        };
+
+        // ==========================================
+        // 3. Phaser 3 Piksel Çizim Oluşturucu
+        // ==========================================
+        function createDynamicTextures(scene) {
+            
+            // 3.1 Çim Karosu
+            let grassCanvas = scene.textures.createCanvas('grass', 32, 32);
+            let ctx = grassCanvas.context;
+            ctx.fillStyle = '#78be5a'; 
+            ctx.fillRect(0, 0, 32, 32);
+            ctx.fillStyle = '#65a748';
+            ctx.fillRect(4, 8, 2, 4);
+            ctx.fillRect(6, 6, 2, 2);
+            ctx.fillRect(18, 22, 2, 4);
+            ctx.fillRect(24, 12, 2, 4);
+            ctx.fillRect(26, 10, 2, 2);
+            grassCanvas.refresh();
+
+            // 3.2 Patika Karosu
+            let pathCanvas = scene.textures.createCanvas('path', 32, 32);
+            ctx = pathCanvas.context;
+            ctx.fillStyle = '#e5b880'; 
+            ctx.fillRect(0, 0, 32, 32);
+            ctx.fillStyle = '#cca06a';
+            ctx.fillRect(6, 6, 4, 3);
+            ctx.fillRect(22, 18, 3, 3);
+            ctx.fillRect(12, 26, 2, 2);
+            pathCanvas.refresh();
+
+            // 3.3 Oyuncu (Turuncu Kedi Kulaklı Bakıcı)
+            let playerCanvas = scene.textures.createCanvas('player', 32, 32);
+            ctx = playerCanvas.context;
+            
+            ctx.fillStyle = '#e67e22';
+            ctx.beginPath();
+            ctx.moveTo(4, 12); ctx.lineTo(10, 4); ctx.lineTo(14, 12); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(18, 12); ctx.lineTo(22, 4); ctx.lineTo(28, 12); ctx.fill();
+            
+            ctx.fillStyle = '#ffb8b8';
+            ctx.beginPath();
+            ctx.moveTo(6, 11); ctx.lineTo(9, 6); ctx.lineTo(12, 11); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(20, 11); ctx.lineTo(23, 6); ctx.lineTo(26, 11); ctx.fill();
+
+            ctx.fillStyle = '#ffe0bd';
+            ctx.fillRect(6, 10, 20, 12);
+            ctx.fillStyle = '#e67e22'; 
+            ctx.fillRect(4, 10, 2, 12);
+            ctx.fillRect(26, 10, 2, 12);
+            ctx.fillRect(6, 10, 20, 2);
+
+            ctx.fillStyle = '#2c3e50';
+            ctx.fillRect(10, 14, 2.5, 3);
+            ctx.fillRect(19.5, 14, 2.5, 3);
+            ctx.fillStyle = '#ff7675';
+            ctx.fillRect(8, 18, 2, 2);
+            ctx.fillRect(22, 18, 2, 2);
+
+            ctx.fillStyle = '#3498db';
+            ctx.fillRect(6, 22, 20, 8);
+            ctx.fillStyle = '#e74c3c'; 
+            ctx.fillRect(11, 22, 10, 3);
+            ctx.fillStyle = '#2c3e50';
+            ctx.fillRect(7, 30, 6, 2);
+            ctx.fillRect(19, 30, 6, 2);
+            playerCanvas.refresh();
+
+            // 3.4 Bakıcı Kulübesi (96x96 piksel)
+            let cabinCanvas = scene.textures.createCanvas('cabin', 96, 96);
+            ctx = cabinCanvas.context;
+            ctx.fillStyle = '#964b00';
+            ctx.fillRect(10, 35, 76, 55);
+            ctx.fillStyle = '#7a3c00';
+            for (let y = 35; y < 90; y += 10) {
+                ctx.fillRect(10, y, 76, 2);
+            }
+            ctx.fillStyle = '#522900';
+            ctx.fillRect(6, 35, 6, 55);
+            ctx.fillRect(84, 35, 6, 55);
+
+            ctx.fillStyle = '#e74c3c';
+            ctx.beginPath();
+            ctx.moveTo(48, 2); ctx.lineTo(1, 38); ctx.lineTo(95, 38); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#c0392b';
+            ctx.beginPath();
+            ctx.moveTo(48, 5); ctx.lineTo(14, 38); ctx.lineTo(1, 38); ctx.lineTo(48, 2); ctx.fill();
+
+            ctx.fillStyle = '#522900';
+            ctx.fillRect(36, 55, 24, 35);
+            ctx.fillStyle = '#f1c40f';
+            ctx.beginPath();
+            ctx.arc(40, 72, 2.5, 0, Math.PI * 2); ctx.fill();
+
+            ctx.fillStyle = '#f1c40f';
+            ctx.fillRect(16, 45, 16, 16);
+            ctx.fillRect(64, 45, 16, 16);
+            ctx.fillStyle = '#522900';
+            ctx.fillRect(23, 45, 2, 16); ctx.fillRect(16, 52, 16, 2);
+            ctx.fillRect(71, 45, 2, 16); ctx.fillRect(64, 52, 16, 2);
+
+            ctx.fillStyle = '#34495e';
+            ctx.fillRect(70, 10, 12, 20);
+            ctx.fillStyle = '#2c3e50';
+            ctx.fillRect(68, 10, 16, 4);
+            cabinCanvas.refresh();
+
+            // 3.5 Bakır Maden Damarı (64x64 piksel)
+            let mineCanvas = scene.textures.createCanvas('mine', 64, 64);
+            ctx = mineCanvas.context;
+            ctx.fillStyle = '#7f8c8d';
+            ctx.beginPath();
+            ctx.moveTo(10, 54); ctx.lineTo(18, 18); ctx.lineTo(34, 6); ctx.lineTo(50, 22); ctx.lineTo(54, 54); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#95a5a6';
+            ctx.beginPath();
+            ctx.moveTo(34, 6); ctx.lineTo(50, 22); ctx.lineTo(54, 54); ctx.lineTo(34, 54); ctx.closePath(); ctx.fill();
+
+            ctx.fillStyle = '#d35400';
+            ctx.fillRect(20, 26, 10, 6);
+            ctx.fillRect(28, 20, 6, 8);
+            ctx.fillRect(38, 38, 10, 8);
+            ctx.fillRect(44, 32, 6, 8);
+            ctx.fillStyle = '#f39c12';
+            ctx.fillRect(22, 28, 4, 3);
+            ctx.fillRect(40, 40, 4, 4);
+
+            ctx.fillStyle = '#2c3e50';
+            ctx.fillRect(4, 54, 56, 4);
+            mineCanvas.refresh();
+
+            // 3.6 Pazar Tezgahı (96x64 piksel)
+            let marketCanvas = scene.textures.createCanvas('market', 96, 64);
+            ctx = marketCanvas.context;
+            ctx.fillStyle = '#8b542e';
+            ctx.fillRect(8, 28, 80, 32);
+            ctx.fillStyle = '#6a3e21';
+            ctx.fillRect(14, 34, 68, 26);
+
+            ctx.fillStyle = '#d2b48c';
+            ctx.fillRect(10, 10, 4, 20);
+            ctx.fillRect(82, 10, 4, 20);
+
+            let stripes = 8;
+            let width = 96 / stripes;
+            for (let i = 0; i < stripes; i++) {
+                ctx.fillStyle = (i % 2 === 0) ? '#e74c3c' : '#ffffff';
+                ctx.fillRect(i * width, 2, width, 14);
+            }
+            for (let i = 0; i < stripes; i++) {
+                ctx.fillStyle = (i % 2 === 0) ? '#e74c3c' : '#ffffff';
+                ctx.beginPath();
+                ctx.arc(i * width + width/2, 16, width/2, 0, Math.PI);
+                ctx.fill();
+            }
+
+            ctx.fillStyle = '#e67e22'; 
+            ctx.fillRect(20, 26, 16, 8);
+            ctx.fillStyle = '#d35400'; 
+            ctx.fillRect(22, 24, 4, 4);
+            ctx.fillRect(28, 24, 5, 3);
+
+            ctx.fillStyle = '#e67e22'; 
+            ctx.fillRect(56, 26, 18, 8);
+            ctx.fillStyle = '#2ecc71'; 
+            ctx.fillRect(58, 24, 4, 4);
+            ctx.fillRect(66, 24, 5, 4);
+            marketCanvas.refresh();
+
+            // 3.7 Ağaç (48x64 piksel)
+            let treeCanvas = scene.textures.createCanvas('tree', 48, 64);
+            ctx = treeCanvas.context;
+            ctx.fillStyle = '#5c2d16';
+            ctx.fillRect(20, 44, 8, 20);
+            ctx.fillStyle = '#412010'; 
+            ctx.fillRect(20, 48, 2, 16);
+
+            ctx.fillStyle = '#27ae60';
+            ctx.beginPath(); ctx.arc(24, 26, 18, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(14, 34, 14, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(34, 34, 14, 0, Math.PI * 2); ctx.fill();
+
+            ctx.fillStyle = '#2ecc71';
+            ctx.beginPath(); ctx.arc(22, 22, 10, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(12, 32, 8, 0, Math.PI * 2); ctx.fill();
+
+            ctx.fillStyle = '#1e824c';
+            ctx.beginPath(); ctx.arc(26, 30, 8, 0, Math.PI * 2); ctx.fill();
+            treeCanvas.refresh();
+
+            // 3.8 Uykucu Kedi (24x24 piksel)
+            let catCanvas = scene.textures.createCanvas('sleepy_cat', 24, 24);
+            ctx = catCanvas.context;
+            ctx.fillStyle = '#e67e22';
+            ctx.beginPath(); ctx.arc(12, 14, 8, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(16, 10, 5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#d35400';
+            ctx.beginPath(); ctx.moveTo(14, 5); ctx.lineTo(16, 1); ctx.lineTo(18, 5); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(18, 5); ctx.lineTo(21, 2); ctx.lineTo(21, 6); ctx.fill();
+            ctx.strokeStyle = '#e67e22'; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.arc(12, 15, 9, 0.5, Math.PI); ctx.stroke();
+            ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(14, 10); ctx.lineTo(15, 11);
+            ctx.moveTo(18, 10); ctx.lineTo(19, 11);
+            ctx.stroke();
+            catCanvas.refresh();
+        }
+
+        // ==========================================
+        // 4. Phaser 3 Sahnesi Sınıfı
+        // ==========================================
+        class HomesteadScene extends Phaser.Scene {
+            constructor() {
+                super('HomesteadScene');
+                this.nearCabin = false;
+                this.nearMine = false;
+                this.nearMarket = false;
+                
+                this.isSleeping = false;
+                this.isMining = false;
+                this.miningTimeElapsed = 0;
+                
+                this.checkedCat = false;
+                this.warnedLowEnergy = false;
+                
+                // Fare/Dokunmatik ile hedef yönlendirme
+                this.isMovingToPointer = false;
+                this.targetPoint = null;
+            }
+
+            preload() {
+                createDynamicTextures(this);
+            }
+
+            create() {
+                // Klavye Girdileri
+                this.cursors = this.input.keyboard.createCursorKeys();
+                this.keys = this.input.keyboard.addKeys('W,A,S,D,E');
+
+                // Dairesel Zaman Göstergesi Grafiği
+                this.miningCircle = this.add.graphics().setDepth(2005);
+
+                // 4.1 Harita Karoları Yerleşimi (32x32 Çözünürlük)
+                for (let col = 0; col < 25; col++) {
+                    for (let row = 0; row < 19; row++) {
+                        let tileX = col * 32 + 16;
+                        let tileY = row * 32 + 16;
+                        let isPath = false;
+
+                        // Yapıları birbirine bağlayan patikalar
+                        if (row === 5 && col >= 5 && col <= 20) isPath = true;
+                        if (col === 5 && row >= 5 && row <= 14) isPath = true;
+                        if (row === 14 && col >= 5 && col <= 20) isPath = true;
+
+                        let tile = this.add.image(tileX, tileY, isPath ? 'path' : 'grass');
+                        tile.setDepth(0);
+                    }
+                }
+
+                // 4.2 Harita Dekorasyonları (Çiçekler ve Taşlar)
+                for (let i = 0; i < 40; i++) {
+                    let randX = Phaser.Math.Between(45, 755);
+                    let randY = Phaser.Math.Between(45, 555);
+                    
+                    let overlap = false;
+                    if (randX > 100 && randX < 220 && randY > 100 && randY < 220) overlap = true; 
+                    if (randX > 590 && randX < 690 && randY > 390 && randY < 530) overlap = true; 
+                    if (randX > 590 && randX < 690 && randY > 120 && randY < 240) overlap = true; 
+                    
+                    let colCell = Math.floor(randX / 32);
+                    let rowCell = Math.floor(randY / 32);
+                    if (rowCell === 5 || rowCell === 14 || colCell === 5) overlap = true;
+
+                    if (!overlap) {
+                        let decorStyle = Phaser.Math.Between(0, 2);
+                        if (decorStyle === 0) {
+                            let gr = this.add.graphics();
+                            gr.fillStyle(0xf1c40f, 1);
+                            gr.fillCircle(randX, randY, 2.5);
+                            gr.fillStyle(0xffffff, 1);
+                            gr.fillCircle(randX - 2, randY - 1, 1.2);
+                            gr.fillCircle(randX + 2, randY + 1, 1.2);
+                            gr.setDepth(randY);
+                        } else if (decorStyle === 1) {
+                            let gr = this.add.graphics();
+                            gr.fillStyle(0x9b59b6, 1);
+                            gr.fillCircle(randX, randY, 2);
+                            gr.setDepth(randY);
+                        } else {
+                            let gr = this.add.graphics();
+                            gr.fillStyle(0xbdc3c7, 1);
+                            gr.fillEllipse(randX, randY, 5, 3.5);
+                            gr.setDepth(randY);
+                        }
+                    }
+                }
+
+                // Kulübe önünde uyuyan şirin kedi
+                this.kittyDecor = this.add.sprite(200, 185, 'sleepy_cat');
+                this.kittyDecor.setDepth(185);
+
+                // 4.3 Statik Yapılar & Fizik Alanları
+                this.cabin = this.physics.add.staticSprite(160, 160, 'cabin');
+                this.cabin.setSize(80, 50).setOffset(8, 30).setDepth(160);
+
+                this.market = this.physics.add.staticSprite(640, 180, 'market');
+                this.market.setSize(80, 45).setOffset(8, 14).setDepth(180);
+
+                this.mine = this.physics.add.staticSprite(640, 460, 'mine');
+                this.mine.setSize(52, 40).setOffset(6, 18).setDepth(460);
+
+                // 4.4 Orman Sınır Ağaçları
+                this.boundaryTrees = this.physics.add.staticGroup();
+                for (let x = 24; x < 800; x += 48) {
+                    this.boundaryTrees.create(x, 24, 'tree');
+                    this.boundaryTrees.create(x, 584, 'tree');
+                }
+                for (let y = 72; y < 560; y += 48) {
+                    this.boundaryTrees.create(20, y, 'tree');
+                    this.boundaryTrees.create(780, y, 'tree');
+                }
+                this.boundaryTrees.getChildren().forEach(tree => {
+                    tree.setDepth(tree.y).setSize(30, 20).setOffset(9, 42); 
+                });
+
+                // 4.5 Oyuncu Tanımlama
+                this.player = this.physics.add.sprite(160, 260, 'player');
+                this.player.setCollideWorldBounds(true).setSize(22, 14).setOffset(5, 18).setDepth(260);
+
+                // Çarpışma Kuralları
+                this.physics.add.collider(this.player, this.cabin);
+                this.physics.add.collider(this.player, this.market);
+                this.physics.add.collider(this.player, this.mine);
+                this.physics.add.collider(this.player, this.boundaryTrees);
+
+                // 4.6 Etkileşim Baloncukları
+                this.cabinBubble = this.add.container(160, 105).setDepth(1000).setAlpha(0);
+                let bubbleBg1 = this.add.graphics().fillStyle(0x312e81, 0.85).fillRoundedRect(-54, -14, 108, 28, 8);
+                let bubbleTxt1 = this.add.text(0, 0, '💤 [E] Dinlen', { fontFamily: '"Fredoka", sans-serif', fontSize: '11px', fontWeight: 'bold', color: '#ffffff' }).setOrigin(0.5);
+                this.cabinBubble.add([bubbleBg1, bubbleTxt1]);
+
+                this.marketBubble = this.add.container(640, 130).setDepth(1000).setAlpha(0);
+                let bubbleBg2 = this.add.graphics().fillStyle(0x064e3b, 0.85).fillRoundedRect(-56, -14, 112, 28, 8);
+                let bubbleTxt2 = this.add.text(0, 0, '🏪 [E] Ticaret', { fontFamily: '"Fredoka", sans-serif', fontSize: '11px', fontWeight: 'bold', color: '#ffffff' }).setOrigin(0.5);
+                this.marketBubble.add([bubbleBg2, bubbleTxt2]);
+
+                this.mineBubble = this.add.container(640, 410).setDepth(1000).setAlpha(0);
+                let bubbleBg3 = this.add.graphics().fillStyle(0x7c2d12, 0.85).fillRoundedRect(-62, -14, 124, 28, 8);
+                let bubbleTxt3 = this.add.text(0, 0, '⛏️ [SPACE] Kaz', { fontFamily: '"Fredoka", sans-serif', fontSize: '11px', fontWeight: 'bold', color: '#ffffff' }).setOrigin(0.5);
+                this.mineBubble.add([bubbleBg3, bubbleTxt3]);
+
+                // 4.7 Kazı Parçacık Sistemi
+                this.mineParticles = this.add.particles(0, 0, 'path', {
+                    lifespan: 500,
+                    speed: { min: 60, max: 130 },
+                    scale: { start: 0.35, end: 0 },
+                    angle: { min: 230, max: 310 },
+                    gravityY: 300,
+                    quantity: 8,
+                    emitting: false
+                });
+
+                // SPACE tuşu ile Maden Kazmayı başlatma
+                this.input.keyboard.on('keydown-SPACE', () => {
+                    if (this.nearMine && !this.isMining && !this.isSleeping) {
+                        this.startMining();
+                    }
+                });
+
+                // E Tuşu etkileşimleri
+                this.input.keyboard.on('keydown-E', () => {
+                    if (this.isMining) return;
+                    if (this.nearCabin) {
+                        triggerSleepFlow();
+                    } else if (this.nearMarket) {
+                        const panel = document.getElementById('market-banner');
+                        if (panel) {
+                            panel.classList.add('ring-4', 'ring-emerald-400');
+                            setTimeout(() => panel.classList.remove('ring-4', 'ring-emerald-400'), 500);
+                        }
+                    }
+                });
+
+                // Fare ile dokunup yürütme
+                this.input.on('pointerdown', (pointer) => {
+                    if (this.isMining || this.isSleeping) return;
+                    if (pointer.y > 580 || pointer.x < 30 || pointer.x > 770) return;
+                    
+                    this.physics.moveToObject(this.player, pointer, 175);
+                    this.isMovingToPointer = true;
+                    this.targetPoint = new Phaser.Geom.Point(pointer.x, pointer.y);
+                });
+
+                window.phaserGameReady = true;
+                updateUI();
+            }
+
+            // Kayan bilgi yazısı pop-up'ı
+            showFloatingText(x, y, label, colorHex) {
+                const text = this.add.text(x, y, label, {
+                    fontFamily: '"Fredoka", sans-serif',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    color: colorHex,
+                    stroke: '#000000',
+                    strokeThickness: 3
+                }).setOrigin(0.5).setDepth(2000);
+
+                this.tweens.add({
+                    targets: text,
+                    y: y - 55,
+                    alpha: 0,
+                    duration: 1100,
+                    ease: 'Cubic.easeOut',
+                    onComplete: () => text.destroy()
+                });
+            }
+
+            // Maden Kazma Sürecini Başlatma (5 Saniye)
+            startMining() {
+                if (this.isSleeping || this.isMining) return;
+
+                // Enerji kontrolü
+                if (gameState.energy < 15) {
+                    sounds.playAlert();
+                    gameState.logs.unshift("⚠️ Çok yorgunsun! Maden kazabilmek için kulübede uyuman gerekiyor.");
+                    this.showFloatingText(this.player.x, this.player.y - 25, "Tükendin! 💤", "#ef4444");
+                    updateUI();
+                    return;
+                }
+
+                // Açlık kontrolü
+                if (gameState.satiety <= 0) {
+                    sounds.playAlert();
+                    gameState.logs.unshift("⚠️ Açlıktan bayılmak üzeresin! Başkan Barnaby'den yiyecek almalısın.");
+                    this.showFloatingText(this.player.x, this.player.y - 25, "Açsın! 🐟", "#ef4444");
+                    updateUI();
+                    return;
+                }
+
+                // Kazı durumuna geçiş
+                this.isMining = true;
+                this.miningTimeElapsed = 0;
+                this.player.body.setVelocity(0, 0); // Kazarken hareketi engelle
+                
+                sounds.playMine();
+                this.mineParticles.emitParticleAt(640, 450, 4);
+
+                // Sallantı efekti
+                this.tweens.add({
+                    targets: this.player,
+                    angle: { from: -15, to: 15 },
+                    duration: 100,
+                    yoyo: true,
+                    repeat: 1
+                });
+
+                // Kazı esnasında her saniye ses çıkartma
+                this.miningSoundEvent = this.time.addEvent({
+                    delay: 1250,
+                    callback: () => {
+                        if (this.isMining) {
+                            sounds.playMine();
+                            this.mineParticles.emitParticleAt(640, 450, 3);
+                            this.tweens.add({
+                                targets: this.player,
+                                angle: { from: -10, to: 10 },
+                                duration: 90,
+                                yoyo: true,
+                                repeat: 1,
+                                onComplete: () => this.player.setAngle(0)
+                            });
+                        }
+                    },
+                    repeat: 3
+                });
+
+                gameState.logs.unshift("⛏️ Bakır madenini kazmaya başladın... (5 Saniye sürecek)");
+                updateUI();
+            }
+
+            update(time, delta) {
+                // Katman Sıralaması (Y-sorting)
+                if (!this.isSleeping) {
+                    this.player.setDepth(this.player.y);
+                }
+
+                // Mesafeleri Kontrol Etme
+                let distanceToCabin = Phaser.Math.Distance.Between(this.player.x, this.player.y, 160, 160);
+                let distanceToMarket = Phaser.Math.Distance.Between(this.player.x, this.player.y, 640, 180);
+                let distanceToMine = Phaser.Math.Distance.Between(this.player.x, this.player.y, 640, 460);
+                let distanceToKitty = Phaser.Math.Distance.Between(this.player.x, this.player.y, 200, 185);
+
+                // Yapı Yakınlık Kontrolleri
+                if (distanceToCabin < 80) {
+                    if (!this.nearCabin) {
+                        this.nearCabin = true;
+                        this.tweens.add({ targets: this.cabinBubble, alpha: 1, duration: 150 });
+                        updateUI();
+                    }
+                } else {
+                    if (this.nearCabin) {
+                        this.nearCabin = false;
+                        this.tweens.add({ targets: this.cabinBubble, alpha: 0, duration: 150 });
+                        updateUI();
+                    }
+                }
+
+                if (distanceToMarket < 85) {
+                    if (!this.nearMarket) {
+                        this.nearMarket = true;
+                        this.tweens.add({ targets: this.marketBubble, alpha: 1, duration: 150 });
+                        updateUI();
+                    }
+                } else {
+                    if (this.nearMarket) {
+                        this.nearMarket = false;
+                        this.tweens.add({ targets: this.marketBubble, alpha: 0, duration: 150 });
+                        updateUI();
+                    }
+                }
+
+                if (distanceToMine < 75) {
+                    if (!this.nearMine) {
+                        this.nearMine = true;
+                        this.tweens.add({ targets: this.mineBubble, alpha: 1, duration: 150 });
+                        updateUI();
+                    }
+                } else {
+                    if (this.nearMine) {
+                        this.nearMine = false;
+                        this.tweens.add({ targets: this.mineBubble, alpha: 0, duration: 150 });
+                        updateUI();
+                    }
+                }
+
+                // Sırdaş kedi miyavlaması paskalya yumurtası
+                if (distanceToKitty < 45) {
+                    if (!this.checkedCat) {
+                        this.checkedCat = true;
+                        gameState.logs.unshift("🐾 Kulübe önündeki uykucu tekir kedi rüya görüyor, mırıldayarak yana kaydı.");
+                        updateUI();
+                        sounds.playCoin();
+                        this.showFloatingText(200, 172, "Mırrr... ❤️", "#ff7675");
+                    }
+                } else {
+                    this.checkedCat = false;
+                }
+
+                // 4.8 KAZMA ZAMAN SÜRECİ VE DAİRESEL GÖSTERGE ÇİZİMİ
+                if (this.isMining) {
+                    this.player.body.setVelocity(0, 0); // Hareket kilidi
+                    this.miningTimeElapsed += delta;
+
+                    // Dairesel Gösterge Çizimi
+                    this.miningCircle.clear();
+                    let px = this.player.x;
+                    let py = this.player.y - 45;
+
+                    // Arka Plan Çember Gölgesi
+                    this.miningCircle.fillStyle(0x000000, 0.45);
+                    this.miningCircle.fillCircle(px, py, 15);
+
+                    // İç Beyaz Halkası
+                    this.miningCircle.lineStyle(3, 0xffffff, 0.2);
+                    this.miningCircle.strokeCircle(px, py, 11);
+
+                    // İlerleme Yayı (Bakır Turuncusu)
+                    let progress = Math.min(1, this.miningTimeElapsed / 5000);
+                    this.miningCircle.lineStyle(4, 0xf97316, 1);
+                    this.miningCircle.beginPath();
+                    let startAngle = -Math.PI / 2;
+                    let endAngle = startAngle + (progress * Math.PI * 2);
+                    this.miningCircle.arc(px, py, 11, startAngle, endAngle, false);
+                    this.miningCircle.strokePath();
+
+                    // Kazı Tamamlandığında
+                    if (this.miningTimeElapsed >= 5000) {
+                        this.isMining = false;
+                        this.miningCircle.clear();
+
+                        let harvested = Phaser.Math.Between(1, 3);
+                        gameState.copper += harvested;
+                        gameState.energy = Math.max(0, gameState.energy - 15);
+                        gameState.satiety = Math.max(0, gameState.satiety - 10);
+
+                        sounds.playCoin();
+                        this.mineParticles.emitParticleAt(640, 450, 15);
+                        
+                        this.showFloatingText(640, 430, `+${harvested} Bakır! 🧱`, "#f97316");
+                        this.showFloatingText(this.player.x, this.player.y - 20, "-15 Stamina", "#3b82f6");
+
+                        gameState.logs.unshift(`⛏️ Kazım Bitti! ${harvested} adet bakır çıkardın. (-15 Stamina, -10 Tokluk)`);
+                        updateUI();
+                    }
+                } else {
+                    this.miningCircle.clear();
+                }
+
+                // 4.9 YÜRÜME STAMINA HARCAMA SİSTEMİ & TUŞ YÖNLENDİRMELERİ
+                let velocityX = 0;
+                let velocityY = 0;
+                let finalMoveSpeed = 175;
+
+                // Enerji bittiğinde aşırı yavaşlama cezası
+                if (gameState.energy <= 0) {
+                    finalMoveSpeed = 65;
+                    this.player.setAlpha(0.65); // Görsel bitkinlik efekti
+                } else {
+                    this.player.setAlpha(1.0);
+                }
+
+                // Sadece kazmıyorken harekete izin ver
+                if (!this.isMining && !this.isSleeping) {
+                    if (this.cursors.left.isDown || this.keys.A.isDown || activeTouchDirections.left) {
+                        velocityX = -finalMoveSpeed;
+                        this.isMovingToPointer = false;
+                    } else if (this.cursors.right.isDown || this.keys.D.isDown || activeTouchDirections.right) {
+                        velocityX = finalMoveSpeed;
+                        this.isMovingToPointer = false;
+                    }
+
+                    if (this.cursors.up.isDown || this.keys.W.isDown || activeTouchDirections.up) {
+                        velocityY = -finalMoveSpeed;
+                        this.isMovingToPointer = false;
+                    } else if (this.cursors.down.isDown || this.keys.S.isDown || activeTouchDirections.down) {
+                        velocityY = finalMoveSpeed;
+                        this.isMovingToPointer = false;
+                    }
+                }
+
+                // Klik/Dokunma ile otomatik hedefe yürüme
+                if (this.isMovingToPointer && this.targetPoint && !this.isMining) {
+                    let travelDist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.targetPoint.x, this.targetPoint.y);
+                    if (travelDist < 10) {
+                        this.player.body.setVelocity(0, 0);
+                        this.isMovingToPointer = false;
+                    }
+                } else {
+                    if (velocityX !== 0 && velocityY !== 0) {
+                        velocityX *= 0.7071;
+                        velocityY *= 0.7071;
+                    }
+                    this.player.body.setVelocity(velocityX, velocityY);
+                }
+
+                // HAREKET EDERKEN STAMINA (ENERJİ) EKSİLMESİ
+                let isWalking = (this.player.body.velocity.x !== 0 || this.player.body.velocity.y !== 0);
+                if (isWalking && !this.isMining && !this.isSleeping) {
+                    // Yürüme başına harcanacak ince stamina miktarı (Hızla tükenmemesi için saniyede yaklaşık ~1.2 birim eksilir)
+                    let walkingDrain = 0.022; 
+                    let satietyDrain = 0.008;
+
+                    gameState.energy = Math.max(0, gameState.energy - walkingDrain);
+                    gameState.satiety = Math.max(0, gameState.satiety - satietyDrain);
+
+                    // Arayüz barlarını anlık pürüzsüzce güncelle
+                    document.getElementById('bar-energy').style.width = `${gameState.energy}%`;
+                    document.getElementById('text-energy').innerText = `${Math.round(gameState.energy)}/100`;
+                    
+                    document.getElementById('bar-satiety').style.width = `${gameState.satiety}%`;
+                    document.getElementById('text-satiety').innerText = `${Math.round(gameState.satiety)}/100`;
+
+                    // Kritik seviye yorulma uyarısı
+                    if (Math.round(gameState.energy) === 25 && !this.warnedLowEnergy) {
+                        this.warnedLowEnergy = true;
+                        gameState.logs.unshift("⚠️ Enerjin kritik seviyede! Yürümek yavaşça seni tüketir, dinlenmelisin.");
+                        updateUI();
+                    } else if (Math.round(gameState.energy) > 30) {
+                        this.warnedLowEnergy = false;
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // 5. Arayüz Güncelleme & DOM Senkronizasyonu
+        // ==========================================
+        function updateUI() {
+            document.getElementById('hud-day').innerText = `Gün ${gameState.day}`;
+            document.getElementById('hud-coins').innerText = gameState.coins;
+            document.getElementById('hud-copper').innerText = gameState.copper;
+
+            // Tokluk göstergeleri
+            const barSatiety = document.getElementById('bar-satiety');
+            const txtSatiety = document.getElementById('text-satiety');
+            barSatiety.style.width = `${gameState.satiety}%`;
+            txtSatiety.innerText = `${Math.round(gameState.satiety)}/100`;
+            if (gameState.satiety <= 30) {
+                barSatiety.className = "h-3.5 rounded-full bg-red-500 transition-all duration-300 animate-pulse";
+            } else {
+                barSatiety.className = "h-3.5 rounded-full bg-amber-500 transition-all duration-300";
+            }
+
+            // Stamina göstergeleri
+            const barEnergy = document.getElementById('bar-energy');
+            const txtEnergy = document.getElementById('text-energy');
+            barEnergy.style.width = `${gameState.energy}%`;
+            txtEnergy.innerText = `${Math.round(gameState.energy)}/100`;
+            if (gameState.energy <= 25) {
+                barEnergy.className = "h-3.5 rounded-full bg-red-500 transition-all duration-300 animate-pulse";
+            } else {
+                barEnergy.className = "h-3.5 rounded-full bg-emerald-500 transition-all duration-300";
+            }
+
+            // Bakır fiyatı ve trend durumları
+            document.getElementById('market-price').innerText = `${gameState.copperPrice} Altın`;
+            const trendIndicator = document.getElementById('price-trend');
+            if (gameState.priceTrend === 'up') {
+                trendIndicator.innerHTML = `<span class="text-emerald-600 font-extrabold">📈 YÜKSELİŞTE (+${gameState.priceChange} A)</span>`;
+            } else if (gameState.priceTrend === 'down') {
+                trendIndicator.innerHTML = `<span class="text-red-500 font-extrabold">📉 DÜŞÜŞTE (-${gameState.priceChange} A)</span>`;
+            } else {
+                trendIndicator.innerHTML = `<span class="text-slate-400 font-bold">➡️ STABİL</span>`;
+            }
+
+            // Pazar butonlarının pasiflik kuralları
+            const sellOneBtn = document.getElementById('btn-sell-one');
+            const sellAllBtn = document.getElementById('btn-sell-all');
+            const buyTunaBtn = document.getElementById('btn-buy-tuna');
+            const buyKibbleBtn = document.getElementById('btn-buy-kibble');
+
+            if (gameState.copper >= 1) {
+                sellOneBtn.disabled = false;
+                sellOneBtn.className = "flex-1 py-2 px-3 rounded-xl bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-1 shadow transition-all cursor-pointer";
+                sellAllBtn.disabled = false;
+                sellAllBtn.className = "flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-1 shadow transition-all cursor-pointer";
+            } else {
+                sellOneBtn.disabled = true;
+                sellOneBtn.className = "flex-1 py-2 px-3 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs flex items-center justify-center gap-1 border border-slate-200 cursor-not-allowed";
+                sellAllBtn.disabled = true;
+                sellAllBtn.className = "flex-1 py-2 px-3 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs flex items-center justify-center gap-1 border border-slate-200 cursor-not-allowed";
+            }
+
+            if (gameState.coins >= 15) {
+                buyTunaBtn.disabled = false;
+                buyTunaBtn.className = "w-full py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 active:scale-95 text-amber-800 border border-amber-300 font-extrabold transition-all text-[10px] cursor-pointer";
+            } else {
+                buyTunaBtn.disabled = true;
+                buyTunaBtn.className = "w-full py-1.5 rounded-xl bg-slate-50 text-slate-400 border border-slate-200 text-[10px] cursor-not-allowed";
+            }
+
+            if (gameState.coins >= 30) {
+                buyKibbleBtn.disabled = false;
+                buyKibbleBtn.className = "w-full py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 active:scale-95 text-amber-800 border border-amber-300 font-extrabold transition-all text-[10px] cursor-pointer";
+            } else {
+                buyKibbleBtn.disabled = true;
+                buyKibbleBtn.className = "w-full py-1.5 rounded-xl bg-slate-50 text-slate-400 border border-slate-200 text-[10px] cursor-not-allowed";
+            }
+
+            // Bülten Log Akışını Güncelleme
+            const logPanel = document.getElementById('log-feed');
+            logPanel.innerHTML = '';
+            gameState.logs.forEach(log => {
+                const item = document.createElement('div');
+                item.className = "p-2 rounded-xl text-xs leading-relaxed border border-slate-100/50 bg-white shadow-sm flex items-start gap-1.5";
+                
+                if (log.includes('⚠️') || log.includes('Tükendin') || log.includes('yorgunsun') || log.includes('Açsın')) {
+                    item.className += " border-l-4 border-l-red-500 text-red-800 bg-red-50/20";
+                } else if (log.includes('🪙') || log.includes('Kazım Bitti') || log.includes('başladın')) {
+                    item.className += " border-l-4 border-l-orange-500 text-amber-900 bg-amber-50/10";
+                } else if (log.includes('💤') || log.includes('Huzurlu') || log.includes('uyku')) {
+                    item.className += " border-l-4 border-l-indigo-500 text-indigo-900 bg-indigo-50/15";
+                } else if (log.includes('🐾')) {
+                    item.className += " border-l-4 border-l-pink-400 text-pink-800 bg-pink-50/25";
+                } else if (log.includes('🐟') || log.includes('🍗') || log.includes('Yedi')) {
+                    item.className += " border-l-4 border-l-emerald-500 text-emerald-800 bg-emerald-50/10";
+                } else {
+                    item.className += " text-slate-600";
+                }
+                
+                item.innerHTML = `<span>${log}</span>`;
+                logPanel.appendChild(item);
+            });
+
+            // Yapı Yakınlıklarına Göre Ekran Bilgi Balonları
+            const promptMine = document.getElementById('action-prompt-mine');
+            const promptTrade = document.getElementById('action-prompt-trade');
+            const promptRest = document.getElementById('action-prompt-rest');
+            const mktBanner = document.getElementById('market-banner');
+            const mktPlaceholder = document.getElementById('market-placeholder');
+
+            if (window.phaserGameReady && window.game) {
+                const scene = window.game.scene.scenes[0];
+                if (scene) {
+                    if (scene.nearMine) {
+                        promptMine.classList.remove('opacity-40', 'scale-95');
+                        promptMine.classList.add('opacity-100', 'scale-100');
+                    } else {
+                        promptMine.classList.add('opacity-40', 'scale-95');
+                        promptMine.classList.remove('opacity-100', 'scale-100');
+                    }
+
+                    if (scene.nearMarket) {
+                        promptTrade.classList.remove('opacity-40', 'scale-95');
+                        promptTrade.classList.add('opacity-100', 'scale-100');
+                        mktBanner.classList.remove('hidden');
+                        mktPlaceholder.classList.add('hidden');
+                    } else {
+                        promptTrade.classList.add('opacity-40', 'scale-95');
+                        promptTrade.classList.remove('opacity-100', 'scale-100');
+                        mktBanner.classList.add('hidden');
+                        mktPlaceholder.classList.remove('hidden');
+                    }
+
+                    if (scene.nearCabin) {
+                        promptRest.classList.remove('opacity-40', 'scale-95');
+                        promptRest.classList.add('opacity-100', 'scale-100');
+                    } else {
+                        promptRest.classList.add('opacity-40', 'scale-95');
+                        promptRest.classList.remove('opacity-100', 'scale-100');
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // 6. Pazar Ticaret İşlemleri
+        // ==========================================
+        document.getElementById('btn-sell-one').addEventListener('click', () => {
+            if (gameState.copper < 1) return;
+            
+            gameState.copper -= 1;
+            const cashEarned = gameState.copperPrice;
+            gameState.coins += cashEarned;
+            sounds.playCoin();
+
+            if (window.game) {
+                const scene = window.game.scene.scenes[0];
+                if (scene) scene.showFloatingText(640, 150, `+${cashEarned} Altın! 🪙`, "#10b981");
+            }
+
+            gameState.logs.unshift(`🪙 Başkan Barnaby'ye 1 adet bakır satıp ${cashEarned} Altın kazandın.`);
+            updateUI();
+        });
+
+        document.getElementById('btn-sell-all').addEventListener('click', () => {
+            if (gameState.copper < 1) return;
+            
+            const count = gameState.copper;
+            const cashEarned = count * gameState.copperPrice;
+            gameState.copper = 0;
+            gameState.coins += cashEarned;
+            sounds.playCoin();
+
+            if (window.game) {
+                const scene = window.game.scene.scenes[0];
+                if (scene) scene.showFloatingText(640, 150, `+${cashEarned} Altın! 🪙`, "#10b981");
+            }
+
+            gameState.logs.unshift(`🪙 Bulk Satış: Toplam ${count} adet bakırı ${cashEarned} Altın karşılığında sattın.`);
+            updateUI();
+        });
+
+        document.getElementById('btn-buy-tuna').addEventListener('click', () => {
+            if (gameState.coins < 15) return;
+            gameState.coins -= 15;
+            gameState.satiety = Math.min(100, gameState.satiety + 40);
+            sounds.playEat();
+
+            if (window.game) {
+                const scene = window.game.scene.scenes[0];
+                if (scene) scene.showFloatingText(scene.player.x, scene.player.y - 25, "+40 Tokluk 🐟", "#10b981");
+            }
+
+            gameState.logs.unshift("🐟 Konserve Ton Balığı yedin. Tokluğun arttı! (+40 Tokluk)");
+            updateUI();
+        });
+
+        document.getElementById('btn-buy-kibble').addEventListener('click', () => {
+            if (gameState.coins < 30) return;
+            gameState.coins -= 30;
+            gameState.satiety = Math.min(100, gameState.satiety + 90);
+            sounds.playEat();
+
+            if (window.game) {
+                const scene = window.game.scene.scenes[0];
+                if (scene) scene.showFloatingText(scene.player.x, scene.player.y - 25, "+90 Tokluk 🍗", "#10b981");
+            }
+
+            gameState.logs.unshift("🍗 Kaliteli Kuru Mama yedin. Tokluğun tavan yaptı! (+90 Tokluk)");
+            updateUI();
+        });
+
+        // ==========================================
+        // 7. Günü Bitirme ve Uyku Akışı
+        // ==========================================
+        function triggerSleepFlow() {
+            const overlay = document.getElementById('night-overlay');
+            if (!overlay.classList.contains('pointer-events-none')) return;
+
+            overlay.classList.remove('pointer-events-none');
+            overlay.classList.replace('opacity-0', 'opacity-100');
+            sounds.playSleep();
+
+            if (window.game) {
+                const scene = window.game.scene.scenes[0];
+                if (scene && scene.player) {
+                    scene.player.body.setVelocity(0, 0);
+                    scene.isSleeping = true;
+                }
+            }
+
+            setTimeout(() => {
+                gameState.satiety = Math.max(0, gameState.satiety - 30);
+                let wokeStarved = false;
+
+                if (gameState.satiety <= 0) {
+                    wokeStarved = true;
+                    // Açlıktan bayılma cezası
+                    gameState.energy = 50;
+                    gameState.coins = Math.max(0, gameState.coins - 10);
+                } else {
+                    gameState.energy = 100; // Tam enerji dolumu
+                }
+
+                // Bakır piyasası fiyat değişimi
+                const prevPrice = gameState.copperPrice;
+                const priceMovement = Math.round((Math.random() * 8 - 4)); // -4 ile +4 aralığında kayma
+                const updatedPrice = Math.max(5, Math.min(25, prevPrice + priceMovement));
+                gameState.copperPrice = updatedPrice;
+                gameState.priceChange = Math.abs(priceMovement);
+
+                if (priceMovement > 0) {
+                    gameState.priceTrend = 'up';
+                } else if (priceMovement < 0) {
+                    gameState.priceTrend = 'down';
+                } else {
+                    gameState.priceTrend = 'stable';
+                }
+
+                gameState.day += 1;
+
+                if (wokeStarved) {
+                    gameState.logs.unshift(`⚠️ Gün ${gameState.day}: Açlıktan bitkin bir şekilde uyandın! Maksimum staminan %50'ye kilitlendi ve tedavi için 10 Altın harcadın.`);
+                } else {
+                    gameState.logs.unshift(`💤 Gün ${gameState.day}: Güzel bir uykunun ardından zinde ve tam enerjiyle uyandın!`);
+                }
+                gameState.logs.unshift(`📈 Pazar Bülteni: Bugünün bakır borsası değeri ${updatedPrice} Altın olarak belirlendi.`);
+
+                updateUI();
+
+                setTimeout(() => {
+                    overlay.classList.replace('opacity-100', 'opacity-0');
+                    overlay.classList.add('pointer-events-none');
+
+                    if (window.game) {
+                        const scene = window.game.scene.scenes[0];
+                        if (scene) {
+                            scene.isSleeping = false;
+                            scene.showFloatingText(scene.player.x, scene.player.y - 25, wokeStarved ? "Yorgun Uyandın!" : "Enerji Yenilendi!", wokeStarved ? "#ef4444" : "#10b981");
+                        }
+                    }
+                }, 1300);
+
+            }, 2000);
+        }
+
+        document.getElementById('btn-sleep').addEventListener('click', triggerSleepFlow);
+
+        // ==========================================
+        // 8. Mobil D-Pad Tuş Tanımlamaları
+        // ==========================================
+        let activeTouchDirections = {
+            up: false,
+            down: false,
+            left: false,
+            right: false
+        };
+
+        const setupMobileDpad = () => {
+            const bindBtn = (elementId, direction) => {
+                const btn = document.getElementById(elementId);
+                
+                const startMoving = (e) => {
+                    e.preventDefault();
+                    sounds.init();
+                    activeTouchDirections[direction] = true;
+                    if (window.game) {
+                        const scene = window.game.scene.scenes[0];
+                        if (scene) scene.isMovingToPointer = false;
+                    }
+                };
+                
+                const stopMoving = (e) => {
+                    e.preventDefault();
+                    activeTouchDirections[direction] = false;
+                };
+
+                btn.addEventListener('mousedown', startMoving);
+                btn.addEventListener('mouseup', stopMoving);
+                btn.addEventListener('mouseleave', stopMoving);
+                btn.addEventListener('touchstart', startMoving, { passive: false });
+                btn.addEventListener('touchend', stopMoving, { passive: false });
+            };
+
+            bindBtn('btn-move-up', 'up');
+            bindBtn('btn-move-down', 'down');
+            bindBtn('btn-move-left', 'left');
+            bindBtn('btn-move-right', 'right');
+        };
+
+        setupMobileDpad();
+
+        // Başkan Barnaby'nin Kedili SVG İllüstrasyonu
+        document.getElementById('barnaby-avatar').innerHTML = `
+            <svg class="w-12 h-12 inline-block rounded-2xl bg-amber-100/50 p-1 border-2 border-emerald-400" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 24 L22 34 L12 40 Z" fill="#F39C12"/>
+                <path d="M52 24 L42 34 L52 40 Z" fill="#F39C12"/>
+                <rect x="22" y="3" width="20" height="15" fill="#2C3E50" rx="3"/>
+                <ellipse cx="32" cy="18" rx="14" ry="3.5" fill="#1A252F"/>
+                <circle cx="32" cy="36" r="16" fill="#e67e22"/>
+                <path d="M14 26 L20 32 L15 36 Z" fill="#FFB8B8"/>
+                <path d="M50 26 L44 32 L49 36 Z" fill="#FFB8B8"/>
+                <circle cx="26" cy="34" r="2.5" fill="#2C3E50"/>
+                <circle cx="38" cy="34" r="2.5" fill="#2C3E50"/>
+                <circle cx="21.5" cy="38" r="2.2" fill="#FF7675" opacity="0.8"/>
+                <circle cx="42.5" cy="38" r="2.2" fill="#FF7675" opacity="0.8"/>
+                <polygon points="32,38 30,36 34,36" fill="#2C3E50"/>
+                <path d="M30 40 Q32 42 34 40" stroke="#2C3E50" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+            </svg>
+        `;
+
+        // ==========================================
+        // 9. Phaser Ayarları ve Başlatma
+        // ==========================================
+        const config = {
+            type: Phaser.AUTO,
+            parent: 'game-container',
+            width: 800,
+            height: 608,
+            physics: {
+                default: 'arcade',
+                arcade: {
+                    gravity: { y: 0 },
+                    debug: false
+                }
+            },
+            scene: HomesteadScene
+        };
+
+        window.onload = () => {
+            window.game = new Phaser.Game(config);
+            window.phaserGameReady = false;
+        };
+    </script>
+</body>
+</html>
