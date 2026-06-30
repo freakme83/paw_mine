@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meow Mine Prototype</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #162622;
+        color: #fff8d9;
+      }
+
+      .shell {
+        width: min(100vw, 960px);
+        padding: 16px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 24px;
+        color: #ffd27d;
+      }
+
+      .game-wrap {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        border: 4px solid #f3d28b;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #83c978;
+        box-shadow: 0 18px 50px #0008;
+      }
+
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        image-rendering: pixelated;
+      }
+
+      .hud {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        padding: 10px;
+        background: #243d34e6;
+        border: 2px solid #f3d28b;
+        border-radius: 10px;
+      }
+
+      .stat {
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: #365a4e;
+        font-size: 14px;
+        white-space: nowrap;
+      }
+
+      button {
+        margin-left: auto;
+        border: 0;
+        border-radius: 8px;
+        padding: 8px 12px;
+        background: #77518b;
+        color: #fff;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: #8f65a5;
+      }
+
+      .message {
+        position: absolute;
+        left: 12px;
+        bottom: 12px;
+        max-width: calc(100% - 24px);
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: #243d34e6;
+        border: 2px solid #f3d28b;
+        font-size: 14px;
+      }
+
+      .help {
+        margin: 10px 0 0;
+        line-height: 1.5;
+        color: #d9f2d1;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <h1>Meow Mine: Copper Day Prototype</h1>
+      <section class="game-wrap" aria-label="Playable top-down management prototype">
+        <canvas id="game" width="800" height="600"></canvas>
+        <div class="hud" aria-live="polite">
+          <span class="stat" id="day"></span>
+          <span class="stat" id="energy"></span>
+          <span class="stat" id="hunger"></span>
+          <span class="stat" id="coins"></span>
+          <span class="stat" id="copper"></span>
+          <span class="stat" id="price"></span>
+          <button id="sleep" type="button">Sleep ▶</button>
+        </div>
+        <div class="message" id="message">Move with WASD or Arrow Keys. Mine with E. Sell with F.</div>
+      </section>
+      <p class="help">Focus for this first prototype: movement, mining, selling, energy, hunger, coins, and day progression. Cats are intentionally not added yet.</p>
+    </main>
+
+    <script type="module">
+      const canvas = document.querySelector('#game');
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+
+      const world = { width: canvas.width, height: canvas.height };
+      const keys = new Set();
+      const player = { x: 140, y: 320, width: 28, height: 30, speed: 165 };
+      const cabin = { x: 76, y: 96, width: 150, height: 142 };
+      const copperVein = { x: 560, y: 145, width: 110, height: 88 };
+      const market = { x: 540, y: 390, width: 140, height: 112 };
+      const state = {
+        day: 1,
+        energy: 100,
+        maxEnergy: 100,
+        hunger: 100,
+        maxHunger: 100,
+        coins: 25,
+        copper: 0,
+        copperPrice: 7,
+      };
+
+      const ui = {
+        day: document.querySelector('#day'),
+        energy: document.querySelector('#energy'),
+        hunger: document.querySelector('#hunger'),
+        coins: document.querySelector('#coins'),
+        copper: document.querySelector('#copper'),
+        price: document.querySelector('#price'),
+        message: document.querySelector('#message'),
+        sleep: document.querySelector('#sleep'),
+      };
+
+      const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+      const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+      const distanceTo = (area) => {
+        const centerX = area.x + area.width / 2;
+        const centerY = area.y + area.height / 2;
+        return Math.hypot(player.x - centerX, player.y - centerY);
+      };
+
+      function setMessage(text) {
+        ui.message.textContent = text;
+      }
+
+      function updateHud() {
+        ui.day.textContent = `Day ${state.day}`;
+        ui.energy.textContent = `Energy ${state.energy}/${state.maxEnergy}`;
+        ui.hunger.textContent = `Hunger ${state.hunger}/${state.maxHunger}`;
+        ui.coins.textContent = `Coins ${state.coins}`;
+        ui.copper.textContent = `Copper ${state.copper}`;
+        ui.price.textContent = `Copper Price ${state.copperPrice}c`;
+      }
+
+      function mineCopper() {
+        if (distanceTo(copperVein) > 105) {
+          setMessage('Move closer to the copper mining spot before pressing E.');
+          return;
+        }
+
+        if (state.energy < 12 || state.hunger <= 0) {
+          setMessage('You are too tired or hungry to mine. Sleep to recover energy.');
+          return;
+        }
+
+        const found = randomInt(1, 3);
+        state.energy -= 12;
+        state.copper += found;
+        updateHud();
+        setMessage(`Clink! You mined ${found} copper. Energy -12.`);
+      }
+
+      function sellCopper() {
+        if (distanceTo(market) > 115) {
+          setMessage('The marketplace is too far away. Stand by the stall and press F.');
+          return;
+        }
+
+        if (state.copper <= 0) {
+          setMessage('You do not have copper to sell yet.');
+          return;
+        }
+
+        const sold = state.copper;
+        const earned = sold * state.copperPrice;
+        state.copper = 0;
+        state.coins += earned;
+        updateHud();
+        setMessage(`Sold ${sold} copper for ${earned} coins at ${state.copperPrice}c each.`);
+      }
+
+      function sleep() {
+        state.day += 1;
+        state.energy = state.maxEnergy;
+        state.hunger = clamp(state.hunger - 14, 0, state.maxHunger);
+        state.copperPrice = randomInt(4, 12);
+        updateHud();
+        setMessage(`Day ${state.day} begins. Energy restored; hunger fell; copper price changed.`);
+      }
+
+      function drawRect(x, y, width, height, color, stroke = '#00000055') {
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, width, height);
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x + 1.5, y + 1.5, width - 3, height - 3);
+      }
+
+      function drawLabel(text, x, y) {
+        ctx.fillStyle = '#fff0ba';
+        ctx.fillRect(x - 6, y - 18, ctx.measureText(text).width + 12, 24);
+        ctx.fillStyle = '#3b2a16';
+        ctx.font = '16px monospace';
+        ctx.fillText(text, x, y);
+      }
+
+      function drawMap() {
+        ctx.fillStyle = '#8bd17f';
+        ctx.fillRect(0, 0, world.width, world.height);
+
+        for (let x = 0; x < world.width; x += 32) {
+          for (let y = 80; y < world.height; y += 32) {
+            ctx.fillStyle = (x + y) % 64 === 0 ? '#7abe70' : '#91d484';
+            ctx.fillRect(x + 2, y + 2, 28, 28);
+          }
+        }
+
+        drawRect(cabin.x, cabin.y + 44, cabin.width, cabin.height - 44, '#8f5a3c', '#56351e');
+        drawRect(cabin.x - 10, cabin.y, cabin.width + 20, 52, '#c45c3b', '#763626');
+        drawRect(cabin.x + 36, cabin.y + 88, 30, 50, '#4b2c20', '#2a1710');
+        drawRect(cabin.x + 90, cabin.y + 76, 36, 30, '#9fd3ff', '#ffffff');
+        drawLabel('Cabin', cabin.x + 20, cabin.y + cabin.height + 26);
+
+        drawRect(copperVein.x, copperVein.y, copperVein.width, copperVein.height, '#b87333', '#704214');
+        drawRect(copperVein.x + 22, copperVein.y + 18, 20, 18, '#f4a460', '#8a4f22');
+        drawRect(copperVein.x + 62, copperVein.y + 42, 28, 18, '#d99058', '#8a4f22');
+        drawLabel('Copper Vein: E', copperVein.x - 4, copperVein.y + copperVein.height + 30);
+
+        drawRect(market.x, market.y + 20, market.width, market.height - 20, '#d6a34a', '#8a5a22');
+        drawRect(market.x - 8, market.y, market.width + 16, 24, '#e85d75', '#8e2f45');
+        drawRect(market.x + 25, market.y + 56, 28, 34, '#7fb069', '#385d32');
+        drawRect(market.x + 88, market.y + 56, 28, 34, '#76c7c0', '#2e6d67');
+        drawLabel('Market: F', market.x + 12, market.y + market.height + 30);
+      }
+
+      function drawPlayer() {
+        const x = player.x - player.width / 2;
+        const y = player.y - player.height / 2;
+        drawRect(x, y + 8, player.width, player.height - 8, '#5a3d2b', '#2f2118');
+        drawRect(x + 5, y, player.width - 10, 13, '#f3b7c8', '#7a5361');
+        ctx.fillStyle = '#201713';
+        ctx.fillRect(x + 9, y + 5, 4, 4);
+        ctx.fillRect(x + 18, y + 5, 4, 4);
+      }
+
+      function update(deltaSeconds) {
+        const left = keys.has('ArrowLeft') || keys.has('a');
+        const right = keys.has('ArrowRight') || keys.has('d');
+        const up = keys.has('ArrowUp') || keys.has('w');
+        const down = keys.has('ArrowDown') || keys.has('s');
+        let dx = Number(right) - Number(left);
+        let dy = Number(down) - Number(up);
+
+        if (dx !== 0 || dy !== 0) {
+          const length = Math.hypot(dx, dy);
+          dx /= length;
+          dy /= length;
+        }
+
+        player.x = clamp(player.x + dx * player.speed * deltaSeconds, 18, world.width - 18);
+        player.y = clamp(player.y + dy * player.speed * deltaSeconds, 86, world.height - 18);
+      }
+
+      let lastTime = performance.now();
+      function loop(now) {
+        const deltaSeconds = Math.min((now - lastTime) / 1000, 0.05);
+        lastTime = now;
+        update(deltaSeconds);
+        drawMap();
+        drawPlayer();
+        requestAnimationFrame(loop);
+      }
+
+      window.addEventListener('keydown', (event) => {
+        const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+        keys.add(key);
+
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'w', 'a', 's', 'd'].includes(key)) {
+          event.preventDefault();
+        }
+
+        if (key === 'e') {
+          mineCopper();
+        }
+
+        if (key === 'f') {
+          sellCopper();
+        }
+      });
+
+      window.addEventListener('keyup', (event) => {
+        const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+        keys.delete(key);
+      });
+
+      ui.sleep.addEventListener('click', sleep);
+      updateHud();
+      requestAnimationFrame(loop);
+    </script>
+  </body>
+</html>
